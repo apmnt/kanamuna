@@ -1,4 +1,5 @@
 import "./App.css";
+import { Analytics } from "@vercel/analytics/react";
 import HiraganaQuiz from "./components/HiraganaQuiz";
 
 function App() {
@@ -8,6 +9,7 @@ function App() {
         <h1 className="text-3xl">Kanamuna</h1>
         <HiraganaQuiz />
       </div>
+      <Analytics />
     </>
   );
 }
