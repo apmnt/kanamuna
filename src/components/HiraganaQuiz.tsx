@@ -368,7 +368,11 @@ export default function HiraganaQuiz() {
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" || e.key === " ") {
+      if (e.key === " ") {
+        e.preventDefault(); // Prevent space from being typed
+      }
+
       // If user is retrying after a wrong answer
       if (isRetrying) {
         const isCorrectRetry =
@@ -408,7 +412,7 @@ export default function HiraganaQuiz() {
           }, 150);
         }
       } else if (status !== null) {
-        // Already judged, pressing enter to continue
+        // Already judged, pressing enter/space to continue
         const nextActiveId = queue[activeIndex + 1].id;
         setActiveId(nextActiveId);
         setInput("");
@@ -447,6 +451,30 @@ export default function HiraganaQuiz() {
             ...prev,
             [currentHiragana.char]: 0,
           }));
+
+          // Auto-advance on correct answer after a brief delay
+          setTimeout(() => {
+            const nextActiveId = queue[activeIndex + 1].id;
+            setActiveId(nextActiveId);
+            setInput("");
+            setInputColor("#ffffff");
+            setStatus(null);
+
+            setTimeout(() => {
+              setAnimate(false);
+              setQueue((prev) => {
+                const newItem = createQueueItem(
+                  prev[prev.length - 1].hiraganaIndex
+                );
+                return [...prev.slice(1), newItem];
+              });
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  setAnimate(true);
+                });
+              });
+            }, 300);
+          }, 400); // Small delay to show the green flash
         } else {
           // Wrong answer - enter retry mode
           setIsRetrying(true);
@@ -766,7 +794,7 @@ export default function HiraganaQuiz() {
             }}
             className="border border-gray-400 p-2 text-center outline-none placeholder:text-(--placeholder-color) placeholder:transition-colors placeholder:duration-200"
           />
-          <div className="text-gray-400 text-sm mt-2">press enter</div>
+          <div className="text-gray-400 text-sm mt-2">press enter or space</div>
 
           {/* Average streak display below input - positioned absolutely so it doesn't move the input */}
           <div
