@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+/* Add project-wide custom styles below */
+
+@font-face {
+  font-family: "Rodin NTLG";
+  src: url("./assets/fonts/Rodin NTLG/Rodin NTLG.otf") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "New Rodin";
+  src: url("./assets/fonts/NewRodin/NewRodin.otf") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Shin Go";
+  src: url("./assets/fonts/ShinGo/Shin Go Regular.otf") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-sans: "Shin Go", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial;
+}
+
+html,
+body {
+  height: 100vh;
+  height: 100dvh;
+  margin: 5px;
+  font-family: var(--font-sans);
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+html {
+  background-image: linear-gradient(to right, #f3f0ed 1px, transparent 1px),
+    linear-gradient(to bottom, #f3f0ed 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-attachment: fixed;
+}
+
+body {
+  background: transparent;
+}
