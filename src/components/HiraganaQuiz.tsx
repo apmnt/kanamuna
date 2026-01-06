@@ -327,6 +327,8 @@ export default function HiraganaQuiz() {
   >({});
   const [showCharacterTable, setShowCharacterTable] = useState<boolean>(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const pendingInputRef = useRef<string>("");
+  const isTransitioningRef = useRef<boolean>(false);
 
   const activeIndex = queue.findIndex((item) => item.id === activeId);
   const currentHiragana = hiraganaList[queue[activeIndex].hiraganaIndex];
@@ -367,6 +369,52 @@ export default function HiraganaQuiz() {
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (isTransitioningRef.current) {
+      // Buffer input during transition
+      pendingInputRef.current = value;
+    } else {
+      setInput(value);
+    }
+  };
+
+  const advanceToNextCharacter = (onComplete?: () => void) => {
+    isTransitioningRef.current = true;
+    const currentActiveIndex = queue.findIndex((item) => item.id === activeId);
+    const nextActiveId = queue[currentActiveIndex + 1].id;
+
+    setActiveId(nextActiveId);
+    setInput("");
+    setInputColor("#ffffff");
+    setStatus(null);
+    setIsRetrying(false);
+    setPlaceholderColor("#9ca3af");
+
+    // Apply any pending input immediately
+    requestAnimationFrame(() => {
+      if (pendingInputRef.current) {
+        setInput(pendingInputRef.current);
+        pendingInputRef.current = "";
+      }
+      isTransitioningRef.current = false;
+      onComplete?.();
+    });
+
+    setTimeout(() => {
+      setAnimate(false);
+      setQueue((prev) => {
+        const newItem = createQueueItem(prev[prev.length - 1].hiraganaIndex);
+        return [...prev.slice(1), newItem];
+      });
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setAnimate(true);
+        });
+      });
+    }, 300);
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       if (e.key === " ") {
@@ -379,28 +427,7 @@ export default function HiraganaQuiz() {
           input.toLowerCase().trim() === currentHiragana.romaji;
         if (isCorrectRetry) {
           // Correct retry - move to next character
-          const nextActiveId = queue[activeIndex + 1].id;
-          setActiveId(nextActiveId);
-          setInput("");
-          setInputColor("#ffffff");
-          setStatus(null);
-          setIsRetrying(false);
-          setPlaceholderColor("#9ca3af");
-
-          setTimeout(() => {
-            setAnimate(false);
-            setQueue((prev) => {
-              const newItem = createQueueItem(
-                prev[prev.length - 1].hiraganaIndex
-              );
-              return [...prev.slice(1), newItem];
-            });
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                setAnimate(true);
-              });
-            });
-          }, 300);
+          advanceToNextCharacter();
         } else {
           // Still wrong - flash red (both background and placeholder) and clear input to show placeholder
           setInput("");
@@ -413,26 +440,7 @@ export default function HiraganaQuiz() {
         }
       } else if (status !== null) {
         // Already judged, pressing enter/space to continue
-        const nextActiveId = queue[activeIndex + 1].id;
-        setActiveId(nextActiveId);
-        setInput("");
-        setInputColor("#ffffff");
-        setStatus(null);
-
-        setTimeout(() => {
-          setAnimate(false);
-          setQueue((prev) => {
-            const newItem = createQueueItem(
-              prev[prev.length - 1].hiraganaIndex
-            );
-            return [...prev.slice(1), newItem];
-          });
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              setAnimate(true);
-            });
-          });
-        }, 300);
+        advanceToNextCharacter();
       } else {
         // First attempt at answering
         const isCorrect = input.toLowerCase().trim() === currentHiragana.romaji;
@@ -454,26 +462,7 @@ export default function HiraganaQuiz() {
 
           // Auto-advance on correct answer after a brief delay
           setTimeout(() => {
-            const nextActiveId = queue[activeIndex + 1].id;
-            setActiveId(nextActiveId);
-            setInput("");
-            setInputColor("#ffffff");
-            setStatus(null);
-
-            setTimeout(() => {
-              setAnimate(false);
-              setQueue((prev) => {
-                const newItem = createQueueItem(
-                  prev[prev.length - 1].hiraganaIndex
-                );
-                return [...prev.slice(1), newItem];
-              });
-              requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                  setAnimate(true);
-                });
-              });
-            }, 300);
+            advanceToNextCharacter();
           }, 400); // Small delay to show the green flash
         } else {
           // Wrong answer - enter retry mode
@@ -773,7 +762,10 @@ export default function HiraganaQuiz() {
             ref={inputRef}
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value.toLowerCase())}
+            onChange={(e) => {
+              e.target.value = e.target.value.toLowerCase();
+              handleInputChange(e);
+            }}
             onKeyDown={handleKeyDown}
             readOnly
             onFocus={(e) => {
