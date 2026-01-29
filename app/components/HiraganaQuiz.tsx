@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 
 interface KanaCharacter {
