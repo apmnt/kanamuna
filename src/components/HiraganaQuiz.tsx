@@ -395,6 +395,7 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
   const [inputColor, setInputColor] = useState<string>("#ffffff");
   const [animate, setAnimate] = useState<boolean>(true);
   const [isRetrying, setIsRetrying] = useState<boolean>(false);
+  const [autoCheckEnabled, setAutoCheckEnabled] = useState<boolean>(false);
   const [placeholderColor, setPlaceholderColor] = useState<string>("#9ca3af");
   const [_, setPreviousMedian] = useState<number>(() =>
     calculateMedianStreak(
@@ -471,6 +472,158 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
     }
   };
 
+  const handleFirstAttempt = (isCorrect: boolean) => {
+    setStatus(isCorrect ? "correct" : "wrong");
+
+    if (isCorrect) {
+      // Show the correct answer in the input box
+      setInput(currentKana.romaji);
+
+      // Flash animation
+      setInputColor("#22c55e");
+      setTimeout(() => setInputColor("#bbf7d0"), 150);
+
+      // Reset consecutive wrongs for this character
+      setConsecutiveWrongs((prev) => ({
+        ...prev,
+        [currentKana.char]: 0,
+      }));
+
+      // Auto-advance on correct answer after a brief delay
+      setTimeout(() => {
+        advanceToNextCharacter();
+      }, 400); // Small delay to show the green flash
+    } else {
+      // Wrong answer - enter retry mode
+      setIsRetrying(true);
+      setInput("");
+      setInputColor("#fecaca");
+
+      // Increment consecutive wrongs for this character
+      const newConsecutiveWrongs = {
+        ...consecutiveWrongs,
+        [currentKana.char]: (consecutiveWrongs[currentKana.char] || 0) + 1,
+      };
+      setConsecutiveWrongs(newConsecutiveWrongs);
+
+      // Check if this character should be removed (3 wrongs in a row, only if more than 5 chars)
+      if (newConsecutiveWrongs[currentKana.char] >= 3 && pool.length > 5) {
+        const charIndexToRemove = queue[activeIndex].hiraganaIndex;
+        const reducedPool = pool.filter((idx) => idx !== charIndexToRemove);
+
+        setLostCharacterNotification({
+          char: currentKana.char,
+          romaji: currentKana.romaji,
+        });
+        setLostNotificationOpacity(0);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setLostNotificationOpacity(1);
+          });
+        });
+
+        setTimeout(() => {
+          setLostNotificationOpacity(0);
+          setTimeout(() => {
+            setLostCharacterNotification(null);
+          }, 300);
+        }, 3000);
+
+        setPool(reducedPool);
+        savePool(poolStorageKey, reducedPool);
+
+        // Reset consecutive wrongs for this character
+        setConsecutiveWrongs((prev) => ({
+          ...prev,
+          [currentKana.char]: 0,
+        }));
+      }
+    }
+
+    // Update stats
+    const updatedStats = updateCharacterStats(
+      stats,
+      currentKana.char,
+      isCorrect
+    );
+    setStats(updatedStats);
+    saveStats(statsStorageKey, updatedStats);
+
+    // Calculate new median
+    const newMedian = calculateMedianStreak(updatedStats, pool, kanaList);
+
+    // Check if median is below 1 - remove worst character
+    if (newMedian < 1 && pool.length > 1) {
+      const reducedPool = removeWorstCharacterFromPool(
+        pool,
+        updatedStats,
+        kanaList
+      );
+
+      // Find which character was removed
+      const removedIndex = pool.find((idx) => !reducedPool.includes(idx));
+      if (removedIndex !== undefined) {
+        const removedChar = kanaList[removedIndex];
+        setLostCharacterNotification({
+          char: removedChar.char,
+          romaji: removedChar.romaji,
+        });
+        setLostNotificationOpacity(0);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setLostNotificationOpacity(1);
+          });
+        });
+
+        setTimeout(() => {
+          setLostNotificationOpacity(0);
+          setTimeout(() => {
+            setLostCharacterNotification(null);
+          }, 300);
+        }, 3000);
+      }
+
+      setPool(reducedPool);
+      savePool(poolStorageKey, reducedPool);
+    }
+
+    setPreviousMedian(newMedian);
+
+    // Check if we need to add a new character to the pool
+    if (isCorrect && updatedStats[currentKana.char].streak === 5) {
+      const newPool = addNewCharacterToPool(pool, kanaList);
+      if (newPool.length > pool.length) {
+        // Find the newly added character
+        const newCharIndex = newPool.find((idx) => !pool.includes(idx));
+        if (newCharIndex !== undefined) {
+          const newChar = kanaList[newCharIndex];
+          setNewCharacterNotification({
+            char: newChar.char,
+            romaji: newChar.romaji,
+          });
+          // Start with opacity 0, then fade in
+          setNotificationOpacity(0);
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              setNotificationOpacity(1);
+            });
+          });
+
+          // Fade out after 3 seconds
+          setTimeout(() => {
+            setNotificationOpacity(0);
+            setTimeout(() => {
+              setNewCharacterNotification(null);
+            }, 300); // Wait for fade out animation
+          }, 3000);
+        }
+
+        setPool(newPool);
+        savePool(poolStorageKey, newPool);
+      }
+    }
+  };
+
   const advanceToNextCharacter = (onComplete?: () => void) => {
     isTransitioningRef.current = true;
     const currentActiveIndex = queue.findIndex((item) => item.id === activeId);
@@ -535,155 +688,7 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
       } else {
         // First attempt at answering
         const isCorrect = input.toLowerCase().trim() === currentKana.romaji;
-        setStatus(isCorrect ? "correct" : "wrong");
-
-        if (isCorrect) {
-          // Show the correct answer in the input box
-          setInput(currentKana.romaji);
-
-          // Flash animation
-          setInputColor("#22c55e");
-          setTimeout(() => setInputColor("#bbf7d0"), 150);
-
-          // Reset consecutive wrongs for this character
-          setConsecutiveWrongs((prev) => ({
-            ...prev,
-            [currentKana.char]: 0,
-          }));
-
-          // Auto-advance on correct answer after a brief delay
-          setTimeout(() => {
-            advanceToNextCharacter();
-          }, 400); // Small delay to show the green flash
-        } else {
-          // Wrong answer - enter retry mode
-          setIsRetrying(true);
-          setInput("");
-          setInputColor("#fecaca");
-
-          // Increment consecutive wrongs for this character
-          const newConsecutiveWrongs = {
-            ...consecutiveWrongs,
-            [currentKana.char]: (consecutiveWrongs[currentKana.char] || 0) + 1,
-          };
-          setConsecutiveWrongs(newConsecutiveWrongs);
-
-          // Check if this character should be removed (3 wrongs in a row, only if more than 5 chars)
-          if (newConsecutiveWrongs[currentKana.char] >= 3 && pool.length > 5) {
-            const charIndexToRemove = queue[activeIndex].hiraganaIndex;
-            const reducedPool = pool.filter((idx) => idx !== charIndexToRemove);
-
-            setLostCharacterNotification({
-              char: currentKana.char,
-              romaji: currentKana.romaji,
-            });
-            setLostNotificationOpacity(0);
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                setLostNotificationOpacity(1);
-              });
-            });
-
-            setTimeout(() => {
-              setLostNotificationOpacity(0);
-              setTimeout(() => {
-                setLostCharacterNotification(null);
-              }, 300);
-            }, 3000);
-
-            setPool(reducedPool);
-            savePool(poolStorageKey, reducedPool);
-
-            // Reset consecutive wrongs for this character
-            setConsecutiveWrongs((prev) => ({
-              ...prev,
-              [currentKana.char]: 0,
-            }));
-          }
-        }
-
-        // Update stats
-        const updatedStats = updateCharacterStats(
-          stats,
-          currentKana.char,
-          isCorrect
-        );
-        setStats(updatedStats);
-        saveStats(statsStorageKey, updatedStats);
-
-        // Calculate new median
-        const newMedian = calculateMedianStreak(updatedStats, pool, kanaList);
-
-        // Check if median is below 1 - remove worst character
-        if (newMedian < 1 && pool.length > 1) {
-          const reducedPool = removeWorstCharacterFromPool(
-            pool,
-            updatedStats,
-            kanaList
-          );
-
-          // Find which character was removed
-          const removedIndex = pool.find((idx) => !reducedPool.includes(idx));
-          if (removedIndex !== undefined) {
-            const removedChar = kanaList[removedIndex];
-            setLostCharacterNotification({
-              char: removedChar.char,
-              romaji: removedChar.romaji,
-            });
-            setLostNotificationOpacity(0);
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                setLostNotificationOpacity(1);
-              });
-            });
-
-            setTimeout(() => {
-              setLostNotificationOpacity(0);
-              setTimeout(() => {
-                setLostCharacterNotification(null);
-              }, 300);
-            }, 3000);
-          }
-
-          setPool(reducedPool);
-          savePool(poolStorageKey, reducedPool);
-        }
-
-        setPreviousMedian(newMedian);
-
-        // Check if we need to add a new character to the pool
-        if (isCorrect && updatedStats[currentKana.char].streak === 5) {
-          const newPool = addNewCharacterToPool(pool, kanaList);
-          if (newPool.length > pool.length) {
-            // Find the newly added character
-            const newCharIndex = newPool.find((idx) => !pool.includes(idx));
-            if (newCharIndex !== undefined) {
-              const newChar = kanaList[newCharIndex];
-              setNewCharacterNotification({
-                char: newChar.char,
-                romaji: newChar.romaji,
-              });
-              // Start with opacity 0, then fade in
-              setNotificationOpacity(0);
-              requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                  setNotificationOpacity(1);
-                });
-              });
-
-              // Fade out after 3 seconds
-              setTimeout(() => {
-                setNotificationOpacity(0);
-                setTimeout(() => {
-                  setNewCharacterNotification(null);
-                }, 300); // Wait for fade out animation
-              }, 3000);
-            }
-
-            setPool(newPool);
-            savePool(poolStorageKey, newPool);
-          }
-        }
+        handleFirstAttempt(isCorrect);
       }
     }
   };
@@ -691,6 +696,29 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (!autoCheckEnabled || isTransitioningRef.current) return;
+    const normalizedInput = input.toLowerCase().trim();
+    if (normalizedInput !== currentKana.romaji) return;
+
+    if (isRetrying) {
+      advanceToNextCharacter();
+      return;
+    }
+
+    if (status === null) {
+      handleFirstAttempt(true);
+    }
+  }, [
+    autoCheckEnabled,
+    currentKana.romaji,
+    input,
+    isRetrying,
+    status,
+    queue,
+    activeId,
+  ]);
 
   const getPositionFromActive = (index: number): number => {
     return index - activeIndex;
@@ -877,6 +905,15 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
             className="border border-gray-400 p-2 text-center outline-none placeholder:text-(--placeholder-color) placeholder:transition-colors placeholder:duration-200"
           />
           <div className="text-gray-400 text-sm mt-2">press enter or space</div>
+          <label className="flex items-center gap-2 text-xs text-gray-500 mt-3">
+            <input
+              type="checkbox"
+              checked={autoCheckEnabled}
+              onChange={(e) => setAutoCheckEnabled(e.target.checked)}
+              className="accent-gray-800"
+            />
+            Auto-check correct answers
+          </label>
 
           {/* Average streak display below input - positioned absolutely so it doesn't move the input */}
           <div
