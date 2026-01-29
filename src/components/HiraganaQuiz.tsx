@@ -624,6 +624,16 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
     }
   };
 
+  const handleRetryFailure = () => {
+    setInput("");
+    setInputColor("#ef4444");
+    setPlaceholderColor("#ef4444");
+    setTimeout(() => {
+      setInputColor("#fecaca");
+      setPlaceholderColor("#9ca3af");
+    }, 150);
+  };
+
   const advanceToNextCharacter = (onComplete?: () => void) => {
     isTransitioningRef.current = true;
     const currentActiveIndex = queue.findIndex((item) => item.id === activeId);
@@ -674,13 +684,7 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
           advanceToNextCharacter();
         } else {
           // Still wrong - flash red (both background and placeholder) and clear input to show placeholder
-          setInput("");
-          setInputColor("#ef4444");
-          setPlaceholderColor("#ef4444");
-          setTimeout(() => {
-            setInputColor("#fecaca");
-            setPlaceholderColor("#9ca3af");
-          }, 150);
+          handleRetryFailure();
         }
       } else if (status !== null) {
         // Already judged, pressing enter/space to continue
@@ -700,15 +704,21 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
   useEffect(() => {
     if (!autoCheckEnabled || isTransitioningRef.current) return;
     const normalizedInput = input.toLowerCase().trim();
-    if (normalizedInput !== currentKana.romaji) return;
-
     if (isRetrying) {
-      advanceToNextCharacter();
+      if (normalizedInput === currentKana.romaji) {
+        advanceToNextCharacter();
+      } else if (normalizedInput.length >= 4) {
+        handleRetryFailure();
+      }
       return;
     }
 
     if (status === null) {
-      handleFirstAttempt(true);
+      if (normalizedInput === currentKana.romaji) {
+        handleFirstAttempt(true);
+      } else if (normalizedInput.length >= 4) {
+        handleFirstAttempt(false);
+      }
     }
   }, [
     autoCheckEnabled,
@@ -809,12 +819,7 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
       </button>
 
       {/* Reset button at bottom left */}
-      <button
-        onPointerDown={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleReset();
-        }}
+      <div
         style={{
           position: "fixed",
           bottom: "20px",
@@ -822,10 +827,29 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
           touchAction: "manipulation",
           zIndex: 1000,
         }}
-        className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
+        className="flex items-center gap-2"
       >
-        Reset Progress
-      </button>
+        <button
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleReset();
+          }}
+          className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
+        >
+          Reset Progress
+        </button>
+        <button
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setAutoCheckEnabled((prev) => !prev);
+          }}
+          className="px-4 py-2 text-sm text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
+        >
+          Auto-check: {autoCheckEnabled ? "On" : "Off"}
+        </button>
+      </div>
 
       {/* Unified view: Input on left, characters on right */}
       <div
@@ -905,16 +929,6 @@ export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
             className="border border-gray-400 p-2 text-center outline-none placeholder:text-(--placeholder-color) placeholder:transition-colors placeholder:duration-200"
           />
           <div className="text-gray-400 text-sm mt-2">press enter or space</div>
-          <label className="flex items-center gap-2 text-xs text-gray-500 mt-3">
-            <input
-              type="checkbox"
-              checked={autoCheckEnabled}
-              onChange={(e) => setAutoCheckEnabled(e.target.checked)}
-              className="accent-gray-800"
-            />
-            Auto-check correct answers
-          </label>
-
           {/* Average streak display below input - positioned absolutely so it doesn't move the input */}
           <div
             style={{ position: "absolute", top: "100%", marginTop: "32px" }}
