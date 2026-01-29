@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 
-interface Hiragana {
+interface KanaCharacter {
   char: string;
   romaji: string;
 }
+
+type KanaMode = "hiragana" | "katakana";
 
 interface QueueItem {
   hiraganaIndex: number;
@@ -18,62 +20,112 @@ interface CharacterStats {
 
 type StatsMap = Record<string, CharacterStats>;
 
-const hiraganaList: Hiragana[] = [
-  { char: "あ", romaji: "a" },
-  { char: "い", romaji: "i" },
-  { char: "う", romaji: "u" },
-  { char: "え", romaji: "e" },
-  { char: "お", romaji: "o" },
-  { char: "か", romaji: "ka" },
-  { char: "き", romaji: "ki" },
-  { char: "く", romaji: "ku" },
-  { char: "け", romaji: "ke" },
-  { char: "こ", romaji: "ko" },
-  { char: "さ", romaji: "sa" },
-  { char: "し", romaji: "shi" },
-  { char: "す", romaji: "su" },
-  { char: "せ", romaji: "se" },
-  { char: "そ", romaji: "so" },
-  { char: "た", romaji: "ta" },
-  { char: "ち", romaji: "chi" },
-  { char: "つ", romaji: "tsu" },
-  { char: "て", romaji: "te" },
-  { char: "と", romaji: "to" },
-  { char: "な", romaji: "na" },
-  { char: "に", romaji: "ni" },
-  { char: "ぬ", romaji: "nu" },
-  { char: "ね", romaji: "ne" },
-  { char: "の", romaji: "no" },
-  { char: "は", romaji: "ha" },
-  { char: "ひ", romaji: "hi" },
-  { char: "ふ", romaji: "fu" },
-  { char: "へ", romaji: "he" },
-  { char: "ほ", romaji: "ho" },
-  { char: "ま", romaji: "ma" },
-  { char: "み", romaji: "mi" },
-  { char: "む", romaji: "mu" },
-  { char: "め", romaji: "me" },
-  { char: "も", romaji: "mo" },
-  { char: "や", romaji: "ya" },
-  { char: "ゆ", romaji: "yu" },
-  { char: "よ", romaji: "yo" },
-  { char: "ら", romaji: "ra" },
-  { char: "り", romaji: "ri" },
-  { char: "る", romaji: "ru" },
-  { char: "れ", romaji: "re" },
-  { char: "ろ", romaji: "ro" },
-  { char: "わ", romaji: "wa" },
-  { char: "を", romaji: "wo" },
-  { char: "ん", romaji: "n" },
-];
+const kanaSets: Record<KanaMode, KanaCharacter[]> = {
+  hiragana: [
+    { char: "あ", romaji: "a" },
+    { char: "い", romaji: "i" },
+    { char: "う", romaji: "u" },
+    { char: "え", romaji: "e" },
+    { char: "お", romaji: "o" },
+    { char: "か", romaji: "ka" },
+    { char: "き", romaji: "ki" },
+    { char: "く", romaji: "ku" },
+    { char: "け", romaji: "ke" },
+    { char: "こ", romaji: "ko" },
+    { char: "さ", romaji: "sa" },
+    { char: "し", romaji: "shi" },
+    { char: "す", romaji: "su" },
+    { char: "せ", romaji: "se" },
+    { char: "そ", romaji: "so" },
+    { char: "た", romaji: "ta" },
+    { char: "ち", romaji: "chi" },
+    { char: "つ", romaji: "tsu" },
+    { char: "て", romaji: "te" },
+    { char: "と", romaji: "to" },
+    { char: "な", romaji: "na" },
+    { char: "に", romaji: "ni" },
+    { char: "ぬ", romaji: "nu" },
+    { char: "ね", romaji: "ne" },
+    { char: "の", romaji: "no" },
+    { char: "は", romaji: "ha" },
+    { char: "ひ", romaji: "hi" },
+    { char: "ふ", romaji: "fu" },
+    { char: "へ", romaji: "he" },
+    { char: "ほ", romaji: "ho" },
+    { char: "ま", romaji: "ma" },
+    { char: "み", romaji: "mi" },
+    { char: "む", romaji: "mu" },
+    { char: "め", romaji: "me" },
+    { char: "も", romaji: "mo" },
+    { char: "や", romaji: "ya" },
+    { char: "ゆ", romaji: "yu" },
+    { char: "よ", romaji: "yo" },
+    { char: "ら", romaji: "ra" },
+    { char: "り", romaji: "ri" },
+    { char: "る", romaji: "ru" },
+    { char: "れ", romaji: "re" },
+    { char: "ろ", romaji: "ro" },
+    { char: "わ", romaji: "wa" },
+    { char: "を", romaji: "wo" },
+    { char: "ん", romaji: "n" },
+  ],
+  katakana: [
+    { char: "ア", romaji: "a" },
+    { char: "イ", romaji: "i" },
+    { char: "ウ", romaji: "u" },
+    { char: "エ", romaji: "e" },
+    { char: "オ", romaji: "o" },
+    { char: "カ", romaji: "ka" },
+    { char: "キ", romaji: "ki" },
+    { char: "ク", romaji: "ku" },
+    { char: "ケ", romaji: "ke" },
+    { char: "コ", romaji: "ko" },
+    { char: "サ", romaji: "sa" },
+    { char: "シ", romaji: "shi" },
+    { char: "ス", romaji: "su" },
+    { char: "セ", romaji: "se" },
+    { char: "ソ", romaji: "so" },
+    { char: "タ", romaji: "ta" },
+    { char: "チ", romaji: "chi" },
+    { char: "ツ", romaji: "tsu" },
+    { char: "テ", romaji: "te" },
+    { char: "ト", romaji: "to" },
+    { char: "ナ", romaji: "na" },
+    { char: "ニ", romaji: "ni" },
+    { char: "ヌ", romaji: "nu" },
+    { char: "ネ", romaji: "ne" },
+    { char: "ノ", romaji: "no" },
+    { char: "ハ", romaji: "ha" },
+    { char: "ヒ", romaji: "hi" },
+    { char: "フ", romaji: "fu" },
+    { char: "ヘ", romaji: "he" },
+    { char: "ホ", romaji: "ho" },
+    { char: "マ", romaji: "ma" },
+    { char: "ミ", romaji: "mi" },
+    { char: "ム", romaji: "mu" },
+    { char: "メ", romaji: "me" },
+    { char: "モ", romaji: "mo" },
+    { char: "ヤ", romaji: "ya" },
+    { char: "ユ", romaji: "yu" },
+    { char: "ヨ", romaji: "yo" },
+    { char: "ラ", romaji: "ra" },
+    { char: "リ", romaji: "ri" },
+    { char: "ル", romaji: "ru" },
+    { char: "レ", romaji: "re" },
+    { char: "ロ", romaji: "ro" },
+    { char: "ワ", romaji: "wa" },
+    { char: "ヲ", romaji: "wo" },
+    { char: "ン", romaji: "n" },
+  ],
+};
 
-// Local Storage functions
-const STORAGE_KEY = "hiragana-quiz-stats";
-const POOL_STORAGE_KEY = "hiragana-quiz-pool";
+const getStatsStorageKey = (mode: KanaMode): string =>
+  `${mode}-quiz-stats`;
+const getPoolStorageKey = (mode: KanaMode): string => `${mode}-quiz-pool`;
 
-const loadStats = (): StatsMap => {
+const loadStats = (storageKey: string): StatsMap => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (stored) {
       return JSON.parse(stored);
     }
@@ -83,9 +135,9 @@ const loadStats = (): StatsMap => {
   return {};
 };
 
-const saveStats = (stats: StatsMap): void => {
+const saveStats = (storageKey: string, stats: StatsMap): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+    localStorage.setItem(storageKey, JSON.stringify(stats));
   } catch (error) {
     console.error("Failed to save stats to localStorage:", error);
   }
@@ -111,16 +163,15 @@ const updateCharacterStats = (
         streak: currentStats.streak + 1,
       },
     };
-  } else {
-    return {
-      ...stats,
-      [char]: {
-        successCount: currentStats.successCount,
-        failCount: currentStats.failCount + 1,
-        streak: 0, // Reset streak on failure
-      },
-    };
   }
+  return {
+    ...stats,
+    [char]: {
+      successCount: currentStats.successCount,
+      failCount: currentStats.failCount + 1,
+      streak: 0, // Reset streak on failure
+    },
+  };
 };
 
 const calculateAverageStreak = (stats: StatsMap): number => {
@@ -130,9 +181,13 @@ const calculateAverageStreak = (stats: StatsMap): number => {
   return total / entries.length;
 };
 
-const calculateMedianStreak = (stats: StatsMap, pool: number[]): number => {
+const calculateMedianStreak = (
+  stats: StatsMap,
+  pool: number[],
+  kanaList: KanaCharacter[]
+): number => {
   // Only calculate median for characters in the pool
-  const poolChars = pool.map((index) => hiraganaList[index].char);
+  const poolChars = pool.map((index) => kanaList[index].char);
   const streaks = poolChars
     .map((char) => stats[char]?.streak ?? 0)
     .sort((a, b) => a - b);
@@ -142,9 +197,8 @@ const calculateMedianStreak = (stats: StatsMap, pool: number[]): number => {
   const mid = Math.floor(streaks.length / 2);
   if (streaks.length % 2 === 0) {
     return (streaks[mid - 1] + streaks[mid]) / 2;
-  } else {
-    return streaks[mid];
   }
+  return streaks[mid];
 };
 
 const getStreakLeaderboard = (
@@ -157,10 +211,9 @@ const getStreakLeaderboard = (
     .slice(0, 5); // Top 5
 };
 
-// Character pool functions
-const loadPool = (): number[] => {
+const loadPool = (storageKey: string, kanaList: KanaCharacter[]): number[] => {
   try {
-    const stored = localStorage.getItem(POOL_STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (stored) {
       return JSON.parse(stored);
     }
@@ -170,7 +223,7 @@ const loadPool = (): number[] => {
   // Initialize with 5 random characters
   const pool: number[] = [];
   while (pool.length < 5) {
-    const randomIndex = Math.floor(Math.random() * hiraganaList.length);
+    const randomIndex = Math.floor(Math.random() * kanaList.length);
     if (!pool.includes(randomIndex)) {
       pool.push(randomIndex);
     }
@@ -178,16 +231,19 @@ const loadPool = (): number[] => {
   return pool;
 };
 
-const savePool = (pool: number[]): void => {
+const savePool = (storageKey: string, pool: number[]): void => {
   try {
-    localStorage.setItem(POOL_STORAGE_KEY, JSON.stringify(pool));
+    localStorage.setItem(storageKey, JSON.stringify(pool));
   } catch (error) {
     console.error("Failed to save pool to localStorage:", error);
   }
 };
 
-const addNewCharacterToPool = (currentPool: number[]): number[] => {
-  const availableIndices = hiraganaList
+const addNewCharacterToPool = (
+  currentPool: number[],
+  kanaList: KanaCharacter[]
+): number[] => {
+  const availableIndices = kanaList
     .map((_, index) => index)
     .filter((index) => !currentPool.includes(index));
 
@@ -200,7 +256,8 @@ const addNewCharacterToPool = (currentPool: number[]): number[] => {
 
 const removeWorstCharacterFromPool = (
   currentPool: number[],
-  stats: StatsMap
+  stats: StatsMap,
+  kanaList: KanaCharacter[]
 ): number[] => {
   if (currentPool.length <= 5) return currentPool; // Don't remove if only 5 characters left
 
@@ -209,7 +266,7 @@ const removeWorstCharacterFromPool = (
   let worstScore = Infinity;
 
   for (const poolIndex of currentPool) {
-    const char = hiraganaList[poolIndex].char;
+    const char = kanaList[poolIndex].char;
     const charStats = stats[char];
 
     if (!charStats) continue;
@@ -248,14 +305,15 @@ const calculateCharacterWeight = (char: string, stats: StatsMap): number => {
 const getWeightedRandomIndex = (
   pool: number[],
   excludeIndex: number,
-  stats: StatsMap
+  stats: StatsMap,
+  kanaList: KanaCharacter[]
 ): number => {
   const availablePool = pool.filter((index) => index !== excludeIndex);
   if (availablePool.length === 0) return pool[0];
 
   // Calculate weights for each character
   const weights = availablePool.map((index) => {
-    const char = hiraganaList[index].char;
+    const char = kanaList[index].char;
     return calculateCharacterWeight(char, stats);
   });
 
@@ -283,12 +341,25 @@ const activePosition = 6;
 
 let nextId = 0;
 
-export default function HiraganaQuiz() {
-  const [stats, setStats] = useState<StatsMap>(() => loadStats());
-  const [pool, setPool] = useState<number[]>(() => loadPool());
+export default function HiraganaQuiz({ mode }: { mode: KanaMode }) {
+  const kanaList = kanaSets[mode];
+  const statsStorageKey = getStatsStorageKey(mode);
+  const poolStorageKey = getPoolStorageKey(mode);
+
+  const [stats, setStats] = useState<StatsMap>(() =>
+    loadStats(statsStorageKey)
+  );
+  const [pool, setPool] = useState<number[]>(() =>
+    loadPool(poolStorageKey, kanaList)
+  );
 
   const createQueueItem = (excludeIndex: number): QueueItem => ({
-    hiraganaIndex: getWeightedRandomIndex(pool, excludeIndex, stats),
+    hiraganaIndex: getWeightedRandomIndex(
+      pool,
+      excludeIndex,
+      stats,
+      kanaList
+    ),
     id: nextId++,
   });
 
@@ -309,7 +380,11 @@ export default function HiraganaQuiz() {
   const [isRetrying, setIsRetrying] = useState<boolean>(false);
   const [placeholderColor, setPlaceholderColor] = useState<string>("#9ca3af");
   const [_, setPreviousMedian] = useState<number>(() =>
-    calculateMedianStreak(loadStats(), loadPool())
+    calculateMedianStreak(
+      loadStats(statsStorageKey),
+      loadPool(poolStorageKey, kanaList),
+      kanaList
+    )
   );
   const [newCharacterNotification, setNewCharacterNotification] = useState<{
     char: string;
@@ -331,7 +406,7 @@ export default function HiraganaQuiz() {
   const isTransitioningRef = useRef<boolean>(false);
 
   const activeIndex = queue.findIndex((item) => item.id === activeId);
-  const currentHiragana = hiraganaList[queue[activeIndex].hiraganaIndex];
+  const currentKana = kanaList[queue[activeIndex].hiraganaIndex];
 
   const handleReset = () => {
     if (
@@ -340,12 +415,12 @@ export default function HiraganaQuiz() {
       )
     ) {
       // Clear localStorage
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(POOL_STORAGE_KEY);
+      localStorage.removeItem(statsStorageKey);
+      localStorage.removeItem(poolStorageKey);
 
       // Reset state
       const emptyStats = {};
-      const newPool = loadPool(); // This will create a fresh pool with 5 random characters
+      const newPool = loadPool(poolStorageKey, kanaList); // This will create a fresh pool with 5 random characters
 
       setStats(emptyStats);
       setPool(newPool);
@@ -423,8 +498,7 @@ export default function HiraganaQuiz() {
 
       // If user is retrying after a wrong answer
       if (isRetrying) {
-        const isCorrectRetry =
-          input.toLowerCase().trim() === currentHiragana.romaji;
+        const isCorrectRetry = input.toLowerCase().trim() === currentKana.romaji;
         if (isCorrectRetry) {
           // Correct retry - move to next character
           advanceToNextCharacter();
@@ -443,12 +517,12 @@ export default function HiraganaQuiz() {
         advanceToNextCharacter();
       } else {
         // First attempt at answering
-        const isCorrect = input.toLowerCase().trim() === currentHiragana.romaji;
+        const isCorrect = input.toLowerCase().trim() === currentKana.romaji;
         setStatus(isCorrect ? "correct" : "wrong");
 
         if (isCorrect) {
           // Show the correct answer in the input box
-          setInput(currentHiragana.romaji);
+          setInput(currentKana.romaji);
 
           // Flash animation
           setInputColor("#22c55e");
@@ -457,7 +531,7 @@ export default function HiraganaQuiz() {
           // Reset consecutive wrongs for this character
           setConsecutiveWrongs((prev) => ({
             ...prev,
-            [currentHiragana.char]: 0,
+            [currentKana.char]: 0,
           }));
 
           // Auto-advance on correct answer after a brief delay
@@ -473,22 +547,18 @@ export default function HiraganaQuiz() {
           // Increment consecutive wrongs for this character
           const newConsecutiveWrongs = {
             ...consecutiveWrongs,
-            [currentHiragana.char]:
-              (consecutiveWrongs[currentHiragana.char] || 0) + 1,
+            [currentKana.char]: (consecutiveWrongs[currentKana.char] || 0) + 1,
           };
           setConsecutiveWrongs(newConsecutiveWrongs);
 
           // Check if this character should be removed (3 wrongs in a row, only if more than 5 chars)
-          if (
-            newConsecutiveWrongs[currentHiragana.char] >= 3 &&
-            pool.length > 5
-          ) {
+          if (newConsecutiveWrongs[currentKana.char] >= 3 && pool.length > 5) {
             const charIndexToRemove = queue[activeIndex].hiraganaIndex;
             const reducedPool = pool.filter((idx) => idx !== charIndexToRemove);
 
             setLostCharacterNotification({
-              char: currentHiragana.char,
-              romaji: currentHiragana.romaji,
+              char: currentKana.char,
+              romaji: currentKana.romaji,
             });
             setLostNotificationOpacity(0);
             requestAnimationFrame(() => {
@@ -505,12 +575,12 @@ export default function HiraganaQuiz() {
             }, 3000);
 
             setPool(reducedPool);
-            savePool(reducedPool);
+            savePool(poolStorageKey, reducedPool);
 
             // Reset consecutive wrongs for this character
             setConsecutiveWrongs((prev) => ({
               ...prev,
-              [currentHiragana.char]: 0,
+              [currentKana.char]: 0,
             }));
           }
         }
@@ -518,23 +588,27 @@ export default function HiraganaQuiz() {
         // Update stats
         const updatedStats = updateCharacterStats(
           stats,
-          currentHiragana.char,
+          currentKana.char,
           isCorrect
         );
         setStats(updatedStats);
-        saveStats(updatedStats);
+        saveStats(statsStorageKey, updatedStats);
 
         // Calculate new median
-        const newMedian = calculateMedianStreak(updatedStats, pool);
+        const newMedian = calculateMedianStreak(updatedStats, pool, kanaList);
 
         // Check if median is below 1 - remove worst character
         if (newMedian < 1 && pool.length > 1) {
-          const reducedPool = removeWorstCharacterFromPool(pool, updatedStats);
+          const reducedPool = removeWorstCharacterFromPool(
+            pool,
+            updatedStats,
+            kanaList
+          );
 
           // Find which character was removed
           const removedIndex = pool.find((idx) => !reducedPool.includes(idx));
           if (removedIndex !== undefined) {
-            const removedChar = hiraganaList[removedIndex];
+            const removedChar = kanaList[removedIndex];
             setLostCharacterNotification({
               char: removedChar.char,
               romaji: removedChar.romaji,
@@ -555,19 +629,19 @@ export default function HiraganaQuiz() {
           }
 
           setPool(reducedPool);
-          savePool(reducedPool);
+          savePool(poolStorageKey, reducedPool);
         }
 
         setPreviousMedian(newMedian);
 
         // Check if we need to add a new character to the pool
-        if (isCorrect && updatedStats[currentHiragana.char].streak === 5) {
-          const newPool = addNewCharacterToPool(pool);
+        if (isCorrect && updatedStats[currentKana.char].streak === 5) {
+          const newPool = addNewCharacterToPool(pool, kanaList);
           if (newPool.length > pool.length) {
             // Find the newly added character
             const newCharIndex = newPool.find((idx) => !pool.includes(idx));
             if (newCharIndex !== undefined) {
-              const newChar = hiraganaList[newCharIndex];
+              const newChar = kanaList[newCharIndex];
               setNewCharacterNotification({
                 char: newChar.char,
                 romaji: newChar.romaji,
@@ -590,7 +664,7 @@ export default function HiraganaQuiz() {
             }
 
             setPool(newPool);
-            savePool(newPool);
+            savePool(poolStorageKey, newPool);
           }
         }
       }
@@ -616,7 +690,7 @@ export default function HiraganaQuiz() {
 
   const translateY = -activeIndex * charHeight + activePosition * charHeight;
   const averageStreak = calculateAverageStreak(stats);
-  const medianStreak = calculateMedianStreak(stats, pool);
+  const medianStreak = calculateMedianStreak(stats, pool, kanaList);
   const totalStreaks = Object.values(stats).reduce(
     (sum, stat) => sum + stat.streak,
     0
@@ -680,14 +754,13 @@ export default function HiraganaQuiz() {
         onClick={() => setShowCharacterTable(true)}
         style={{
           position: "fixed",
-          top: "20px",
+          top: "76px",
           right: "20px",
           zIndex: 1000,
         }}
         className="text-gray-600 text-sm hover:text-gray-900 cursor-pointer transition-colors"
       >
-        <span className="font-semibold">{pool.length}</span> /{" "}
-        {hiraganaList.length} unlocked
+        <span className="font-semibold">{pool.length}</span> / {kanaList.length} unlocked
       </button>
 
       {/* Reset button at bottom left */}
@@ -771,7 +844,7 @@ export default function HiraganaQuiz() {
             onFocus={(e) => {
               e.target.removeAttribute("readonly");
             }}
-            placeholder={isRetrying ? currentHiragana.romaji : ""}
+            placeholder={isRetrying ? currentKana.romaji : ""}
             autoCapitalize="none"
             autoCorrect="off"
             autoComplete="off"
@@ -802,8 +875,7 @@ export default function HiraganaQuiz() {
               <span className="font-semibold">{medianStreak.toFixed(1)}</span>
             </div>
             <div className="text-gray-600 text-sm mt-1">
-              Total Streaks:{" "}
-              <span className="font-semibold">{totalStreaks}</span>
+              Total Streaks: <span className="font-semibold">{totalStreaks}</span>
             </div>
           </div>
         </div>
@@ -849,7 +921,7 @@ export default function HiraganaQuiz() {
                       transition: "color 300ms ease-out",
                     }}
                   >
-                    {hiraganaList[item.hiraganaIndex].char}
+                    {kanaList[item.hiraganaIndex].char}
                   </span>
                 </div>
               );
@@ -873,7 +945,7 @@ export default function HiraganaQuiz() {
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-semibold text-gray-800">
-                Hiragana table
+                {mode === "hiragana" ? "Hiragana table" : "Katakana table"}
               </h2>
               <button
                 onClick={() => setShowCharacterTable(false)}
@@ -883,9 +955,9 @@ export default function HiraganaQuiz() {
               </button>
             </div>
             <div className="grid grid-cols-5 gap-3">
-              {hiraganaList.map((hiragana, index) => {
+              {kanaList.map((kana, index) => {
                 const isUnlocked = pool.includes(index);
-                const charStats = stats[hiragana.char];
+                const charStats = stats[kana.char];
                 const streak = charStats?.streak ?? 0;
 
                 // Calculate color intensity based on streak (0-10 scale)
@@ -918,14 +990,14 @@ export default function HiraganaQuiz() {
                         isUnlocked ? "text-gray-900" : "text-gray-400"
                       }`}
                     >
-                      {hiragana.char}
+                      {kana.char}
                     </div>
                     <div
                       className={`text-xs ${
                         isUnlocked ? "text-gray-600" : "text-gray-400"
                       }`}
                     >
-                      {hiragana.romaji}
+                      {kana.romaji}
                     </div>
                     {isUnlocked && (
                       <div className="mt-1 flex justify-center">
