@@ -1,9 +1,10 @@
+"use client";
+
 import { useState } from "react";
-import "./App.css";
 import { Analytics } from "@vercel/analytics/react";
 import HiraganaQuiz from "./components/HiraganaQuiz";
 
-function App() {
+export default function Home() {
   const [mode, setMode] = useState<"hiragana" | "katakana">("hiragana");
   const nextMode = mode === "hiragana" ? "katakana" : "hiragana";
   const nextModeLabel = nextMode === "hiragana" ? "Hiragana" : "Katakana";
@@ -38,5 +39,3 @@ function App() {
     </>
   );
 }
-
-export default App;
