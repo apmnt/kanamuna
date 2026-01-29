@@ -122,6 +122,33 @@ const kanaSets: Record<KanaMode, KanaCharacter[]> = {
 const getStatsStorageKey = (mode: KanaMode): string =>
   `${mode}-quiz-stats`;
 const getPoolStorageKey = (mode: KanaMode): string => `${mode}-quiz-pool`;
+const vowelOrder = ["a", "e", "i", "o", "u"];
+
+const getUnlockOrder = (kanaList: KanaCharacter[]): number[] => {
+  const consonantOrder: string[] = [];
+  const parsed = kanaList.map((kana, index) => {
+    const vowelMatch = kana.romaji.match(/[aeiou]$/);
+    const vowel = vowelMatch ? vowelMatch[0] : null;
+    const consonant = vowel ? kana.romaji.slice(0, -1) : kana.romaji;
+    if (!consonantOrder.includes(consonant)) {
+      consonantOrder.push(consonant);
+    }
+    return { index, consonant, vowel };
+  });
+
+  return parsed
+    .sort((a, b) => {
+      const consonantDiff =
+        consonantOrder.indexOf(a.consonant) -
+        consonantOrder.indexOf(b.consonant);
+      if (consonantDiff !== 0) return consonantDiff;
+      if (a.vowel === b.vowel) return 0;
+      if (a.vowel === null) return 1;
+      if (b.vowel === null) return -1;
+      return vowelOrder.indexOf(a.vowel) - vowelOrder.indexOf(b.vowel);
+    })
+    .map((item) => item.index);
+};
 
 const loadStats = (storageKey: string): StatsMap => {
   try {
@@ -220,15 +247,8 @@ const loadPool = (storageKey: string, kanaList: KanaCharacter[]): number[] => {
   } catch (error) {
     console.error("Failed to load pool from localStorage:", error);
   }
-  // Initialize with 5 random characters
-  const pool: number[] = [];
-  while (pool.length < 5) {
-    const randomIndex = Math.floor(Math.random() * kanaList.length);
-    if (!pool.includes(randomIndex)) {
-      pool.push(randomIndex);
-    }
-  }
-  return pool;
+  // Initialize with the first 5 characters in the unlock order
+  return getUnlockOrder(kanaList).slice(0, 5);
 };
 
 const savePool = (storageKey: string, pool: number[]): void => {
@@ -243,15 +263,12 @@ const addNewCharacterToPool = (
   currentPool: number[],
   kanaList: KanaCharacter[]
 ): number[] => {
-  const availableIndices = kanaList
-    .map((_, index) => index)
-    .filter((index) => !currentPool.includes(index));
+  const unlockOrder = getUnlockOrder(kanaList);
+  const nextIndex = unlockOrder.find((index) => !currentPool.includes(index));
 
-  if (availableIndices.length === 0) return currentPool;
+  if (nextIndex === undefined) return currentPool;
 
-  const randomIndex =
-    availableIndices[Math.floor(Math.random() * availableIndices.length)];
-  return [...currentPool, randomIndex];
+  return [...currentPool, nextIndex];
 };
 
 const removeWorstCharacterFromPool = (
